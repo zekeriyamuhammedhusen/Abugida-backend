@@ -4,7 +4,7 @@
   "main": "server.js",
   "scripts": {
     "test": "node --test ./tests",
-    "start": "node server.js",
+    "start": "nodemon server.js",
     "dev": "nodemon server.js"
   },
   "type": "module",
@@ -46,8 +46,5 @@
     "resend": "^4.2.0",
     "socket.io": "^4.8.1",
     "uuid": "^11.1.0"
-  },
-  "devDependencies": {
-    "nodemon": "^3.1.9"
   }
 }
