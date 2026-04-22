@@ -57,6 +57,8 @@ export const initiatePayment = async (req, res) => {
   const { amount, email, fullName, courseId } = req.body;
   const studentId = req.user?._id;
   const tx_ref = `Abugida-${Date.now()}`;
+  const requestOrigin = req.get('origin');
+  const frontendBase = (requestOrigin || process.env.FRONTEND_URL || '').replace(/\/+$/, '');
 
   // Normalize and validate amount
   const amountNum = Number(amount);
@@ -72,7 +74,7 @@ export const initiatePayment = async (req, res) => {
     return res.status(400).json({ error: 'Missing required fields.' });
   }
 
-  if (!process.env.BACKEND_URL || !process.env.CHAPA_SECRET_KEY || !process.env.FRONTEND_URL) {
+  if (!process.env.BACKEND_URL || !process.env.CHAPA_SECRET_KEY || !frontendBase) {
     console.error('Missing required environment variables');
     return res.status(500).json({ error: 'Server configuration error' });
   }
@@ -95,7 +97,7 @@ export const initiatePayment = async (req, res) => {
       first_name: fullName,
       tx_ref,
       callback_url: `${process.env.BACKEND_URL}/api/payment/webhook`,
-      return_url: `${process.env.FRONTEND_URL}/payment-success?course=${courseId}&tx_ref=${tx_ref}`,
+      return_url: `${frontendBase}/payment-success?course=${courseId}&tx_ref=${tx_ref}`,
       customization: {
         title: 'Abugida Payment',
         description: 'Payment for Course Enrollment',
