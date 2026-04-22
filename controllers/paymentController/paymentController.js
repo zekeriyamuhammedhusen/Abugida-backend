@@ -283,16 +283,13 @@ export const chapaWebhook = async (req, res) => {
 export const verifyPayment = async (req, res) => {
   const { tx_ref } = req.params;
   // Accept either `course_id` or `course` (return_url uses `course` currently)
-  const course_id = req.query.course_id || req.query.course;
+  const courseFromQuery = req.query.course_id || req.query.course;
 
   console.log('Verify Payment - Incoming tx_ref:', tx_ref);
-  console.log('Verify Payment - Incoming course_id:', course_id);
+  console.log('Verify Payment - Incoming course_id:', courseFromQuery);
 
   if (!tx_ref) {
     return res.status(400).json({ error: 'Transaction reference (tx_ref) is required' });
-  }
-  if (!course_id) {
-    return res.status(400).json({ error: 'Course ID is required' });
   }
 
   try {
@@ -323,12 +320,18 @@ export const verifyPayment = async (req, res) => {
       return res.status(404).json({ error: 'Payment record not found in database' });
     }
 
+    // Resolve course from callback query first, otherwise trust the existing DB record.
+    const resolvedCourseId = courseFromQuery || existingPayment.courseId;
+    if (!resolvedCourseId) {
+      return res.status(400).json({ error: 'Course ID is required' });
+    }
+
     // Update payment record with verified state
     const updatedPayment = await Payment.findOneAndUpdate(
       { tx_ref: tx_ref.trim() },
       {
         status: 'success',
-        courseId: course_id,
+        courseId: resolvedCourseId,
         verifiedAt: new Date(),
         chapaData: chapaData,
       },
@@ -336,9 +339,9 @@ export const verifyPayment = async (req, res) => {
     );
 
     // Ensure course & instructor exist
-    const course = await Course.findById(course_id);
+    const course = await Course.findById(resolvedCourseId);
     if (!course) {
-      console.error('Verify Payment - Course not found for courseId:', course_id);
+      console.error('Verify Payment - Course not found for courseId:', resolvedCourseId);
       return res.status(404).json({ error: 'Course not found' });
     }
     const instructorId = course.instructor;
@@ -355,7 +358,7 @@ export const verifyPayment = async (req, res) => {
     if (!existingTx) {
       await Transaction.create({
         studentId: existingPayment.studentId,
-        courseId: course_id,
+        courseId: resolvedCourseId,
         instructorId,
         paymentId: updatedPayment._id,
         amountPaid: existingPayment.amount,
@@ -374,18 +377,18 @@ export const verifyPayment = async (req, res) => {
     // Create enrollment if not already present
     const alreadyEnrolled = await Enrollment.findOne({
       studentId: existingPayment.studentId,
-      courseId: course_id,
+      courseId: resolvedCourseId,
     });
 
     if (!alreadyEnrolled) {
       await Enrollment.create({
         studentId: existingPayment.studentId,
-        courseId: course_id,
+        courseId: resolvedCourseId,
         paymentId: updatedPayment._id,
       });
       console.log('Verify Payment - Enrollment created for studentId:', existingPayment.studentId);
     } else {
-      console.log('Verify Payment - Student already enrolled for courseId:', course_id);
+      console.log('Verify Payment - Student already enrolled for courseId:', resolvedCourseId);
     }
 
     console.log('Verify Payment - Payment verified, transaction processed, and enrollment created.');
@@ -393,7 +396,7 @@ export const verifyPayment = async (req, res) => {
     return res.status(200).json({
       message: 'Payment verified, transaction processed, and user enrolled successfully',
       payment: updatedPayment,
-      courseId: course_id,
+      courseId: String(resolvedCourseId),
     });
   } catch (error) {
     console.error('Verify Payment - Error:', error.message, error.stack);

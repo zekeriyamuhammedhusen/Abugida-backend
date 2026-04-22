@@ -57,12 +57,7 @@ export const registerUser = async (req, res) => {
 
     await user.save();
 
-    // Generate OTP for email verification
-    const otp = user.generateOTP();
-    await user.save();
-    await sendEmail(email, 'Your OTP Code', `Your OTP code is: ${otp}`);
-
-    res.status(201).json({ message: 'Registration successful! Check your email for OTP.' });
+    res.status(201).json({ message: 'Registration successful! Please request OTP verification.' });
   } catch (error) {
     res.status(500).json({ message: 'Server error', error: error.message });
   }
