@@ -11,6 +11,27 @@ const generateToken = (id, role) => {
   return jwt.sign({ id, role }, process.env.JWT_SECRET, { expiresIn: TOKEN_EXPIRY_MS / 1000 });
 };
 
+const resolveCookieOptions = () => {
+  const isProduction = process.env.NODE_ENV === 'production' || process.env.RENDER === 'true';
+
+  const configuredSameSite = process.env.COOKIE_SAME_SITE?.toLowerCase();
+  const sameSite = configuredSameSite || (isProduction ? 'none' : 'lax');
+
+  const configuredSecure = process.env.COOKIE_SECURE;
+  const secure =
+    typeof configuredSecure === 'string'
+      ? configuredSecure.toLowerCase() === 'true'
+      : isProduction || sameSite === 'none';
+
+  return {
+    httpOnly: true,
+    secure,
+    sameSite,
+    path: '/',
+    maxAge: TOKEN_EXPIRY_MS,
+  };
+};
+
 // REGISTER
 export const registerUser = async (req, res) => {
   const { name, email, phone, role, expertise, password, confirmPassword } = req.body;
@@ -90,13 +111,7 @@ export const loginUser = async (req, res) => {
     // Store token in HttpOnly cookie
     // Cookie options: for local development use SameSite=Lax and secure=false
     // In production (cross-site) set SameSite=None and secure=true so browsers accept the cookie.
-    const isProd = process.env.NODE_ENV === 'production';
-    const cookieOptions = {
-      httpOnly: true,
-      secure: isProd, // must be true for SameSite=None in modern browsers
-      sameSite: isProd ? 'none' : 'lax',
-      maxAge: TOKEN_EXPIRY_MS, // 2 hours
-    };
+    const cookieOptions = resolveCookieOptions();
 
     res.cookie('token', token, cookieOptions);
 
@@ -110,7 +125,13 @@ export const loginUser = async (req, res) => {
 // LOGOUT
 export const logoutUser = async (req, res) => {
   try {
-    res.clearCookie('token');
+    const cookieOptions = resolveCookieOptions();
+    res.clearCookie('token', {
+      httpOnly: cookieOptions.httpOnly,
+      secure: cookieOptions.secure,
+      sameSite: cookieOptions.sameSite,
+      path: cookieOptions.path,
+    });
     res.status(200).json({ message: "Logged out successfully" });
   } catch (error) {
     res.status(500).json({ message: "Server error", error: error.message });

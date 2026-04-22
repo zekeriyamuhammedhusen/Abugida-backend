@@ -35,13 +35,26 @@ import { fileURLToPath } from "url";
 dotenv.config();
 await connectDB();
 
+const allowedOrigins = (process.env.FRONTEND_URL || "")
+  .split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
+const corsOptions = {
+  origin: (origin, callback) => {
+    // Allow non-browser requests and configured frontend origins
+    if (!origin || allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+    return callback(new Error(`CORS blocked for origin: ${origin}`));
+  },
+  credentials: true,
+};
+
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
-  cors: {
-    origin: process.env.FRONTEND_URL,
-    credentials: true,
-  },
+  cors: corsOptions,
 });
 
 // Track users more effectively
@@ -110,7 +123,7 @@ io.on("connection", (socket) => {
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
-app.use(cors({ origin: process.env.FRONTEND_URL, credentials: true }));
+app.use(cors(corsOptions));
 app.use(morgan("dev"));
 app.use(helmet());
 
