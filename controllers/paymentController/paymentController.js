@@ -97,7 +97,7 @@ export const initiatePayment = async (req, res) => {
       first_name: fullName,
       tx_ref,
       callback_url: `${process.env.BACKEND_URL}/api/payment/webhook`,
-      return_url: `${frontendBase}/payment-success?course=${courseId}&tx_ref=${tx_ref}`,
+      return_url: `${frontendBase}/?payment=success&course=${courseId}&tx_ref=${tx_ref}`,
       customization: {
         title: 'Abugida Payment',
         description: 'Payment for Course Enrollment',
